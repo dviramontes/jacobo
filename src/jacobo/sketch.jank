@@ -1,0 +1,32 @@
+(ns jacobo.sketch
+  (:include "raylib.h"))
+
+(def width 792)
+(def height 960)
+
+(defn draw! []
+  (let [ink (cpp/Color 166 128 225 255)
+        paper (cpp/Color 10 5 23 255)]
+    (cpp/ClearBackground paper)
+    (doseq [row (range 20)
+            col (range 17)]
+      (let [x (+ 12 (* col 48))
+            y (+ 12 (* row 48))
+            motif (mod (+ (* row 7) (* col 11)) 37)]
+        (cond
+          (= motif 0)
+          (cpp/DrawRectangleLinesEx
+           (cpp/Rectangle (* 1.0 (- x 22))
+                          (* 1.0 (- y 22))
+                          44.0
+                          44.0)
+           2.0
+           ink)
+
+          (< motif 5)
+          (doseq [dy [-12 12] dx [-12 12]]
+            (cpp/DrawCircleLines (+ x dx) (+ y dy) 10.0 ink))
+
+          :else
+          (cpp/DrawCircleLines x y 23.0 ink)))))
+  nil)

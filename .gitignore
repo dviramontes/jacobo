@@ -1,0 +1,6 @@
+/target/
+/.jank/
+/.nrepl-port
+/.clj-kondo/.cache/
+/.lsp/.cache/
+.DS_Store

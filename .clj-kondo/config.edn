@@ -1,0 +1,2 @@
+{:linters {:unresolved-namespace {:exclude [cpp]}}
+ :hooks {:analyze-call {clojure.core/ns hooks.jank/ns-form}}}
