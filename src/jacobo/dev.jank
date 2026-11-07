@@ -1,0 +1,31 @@
+(ns jacobo.dev
+  (:require [jacobo.main :as main]
+            [jacobo.sketch :as sketch]
+            [jank.nrepl.server.core :as nrepl]))
+
+(defonce running? (atom true))
+(defonce last-error (atom nil))
+
+(defn stop! []
+  (reset! running? false))
+
+(defn draw-frame! []
+  (try
+    ;; Resolve the var each frame so evaluating a new defn takes effect.
+    (sketch/draw!)
+    (reset! last-error nil)
+    (catch :default _error
+      ;; Keep the window alive so a broken definition can be fixed via nREPL.
+      ;; jank's catch-all does not expose a printable exception value.
+      (let [message "Drawing failed; re-evaluate draw! to recover."]
+        (when (not= message @last-error)
+          (println "Sketch draw failed:" message)
+          (reset! last-error message))))))
+
+(defn -main [& _args]
+  (if-let [error @(nrepl/background-main)]
+    (throw error)
+    (do
+      (reset! running? true)
+      (println "Connect your editor using .nrepl-port; redefine jacobo.sketch/draw! to update the sketch.")
+      (main/run-sketch! (fn [] (draw-frame!)) (fn [] @running?)))))

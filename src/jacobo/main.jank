@@ -2,19 +2,24 @@
   (:require [jacobo.sketch :as sketch])
   (:include "raylib.h"))
 
+(defn run-sketch!
+  "Run the window on the calling (main) thread. Callbacks are invoked each frame."
+  [draw-frame! keep-running?]
+  (cpp/InitWindow sketch/width sketch/height "Jacobo")
+  (cpp/SetTargetFPS 60)
+  (try
+    (while (and (keep-running?) (not (cpp/WindowShouldClose)))
+      (cpp/BeginDrawing)
+      (try
+        (draw-frame!)
+        (finally (cpp/EndDrawing))))
+    (finally
+      (cpp/CloseWindow))))
+
 (defn -main [& args]
   (if (= "--smoke" (first args))
     (do
       ;; Exercise a raylib symbol without requiring a graphics context.
       (cpp/SetTraceLogLevel 4)
       (println "Jacobo: jank + raylib linked successfully."))
-    (do
-      (cpp/InitWindow sketch/width sketch/height "Jacobo")
-      (cpp/SetTargetFPS 60)
-      (try
-        (while (not (cpp/WindowShouldClose))
-          (cpp/BeginDrawing)
-          (sketch/draw!)
-          (cpp/EndDrawing))
-        (finally
-          (cpp/CloseWindow))))))
+    (run-sketch! (fn [] (sketch/draw!)) (constantly true))))

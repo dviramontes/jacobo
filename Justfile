@@ -21,6 +21,10 @@ build:
 run:
     bash scripts/jank.sh run-main jacobo.main
 
+# Open the sketch with an editor-connectable nREPL (0 selects a free port).
+repl port="0":
+    bash scripts/jank.sh --port {{quote(port)}} run-main jacobo.dev
+
 # Build and check raylib linking without opening a window.
 smoke: build
     ./target/jacobo --smoke
