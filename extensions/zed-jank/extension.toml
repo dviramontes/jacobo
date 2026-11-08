@@ -1,0 +1,10 @@
+id = "jank"
+name = "Jank"
+version = "0.0.1"
+schema_version = 1
+authors = ["dviramontes"]
+description = "Syntax highlighting and basic editing support for jank."
+
+[grammars.clojure]
+repository = "https://github.com/prcastro/tree-sitter-clojure"
+rev = "38b4f8d264248b2fd09575fbce66f7c22e8929d5"
