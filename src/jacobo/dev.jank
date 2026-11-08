@@ -12,7 +12,7 @@
   (reset! reset-requested? true))
 
 (defn reset-sketch! []
-  (reset! sketch-state (sketch/setup!)))
+  (reset! sketch-state (sketch/initial-state)))
 
 (defn stop! []
   (reset! running? false))

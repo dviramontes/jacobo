@@ -25,7 +25,7 @@ build:
 run:
     bash scripts/jank.sh run-main jacobo.main
 
-# Reload setup! and draw! independently on save; R resets sketch state.
+# Reload initial-state and draw! independently on save; R resets sketch state.
 dev:
     bash scripts/jank.sh run-main jacobo.live
 

@@ -27,4 +27,4 @@
       (println "Jacobo: jank + raylib linked successfully."))
     (let [state (atom nil)]
       (run-sketch! (fn [] (sketch/draw! @state)) (constantly true)
-                   (fn [] (reset! state (sketch/setup!)))))))
+                   (fn [] (reset! state (sketch/initial-state)))))))

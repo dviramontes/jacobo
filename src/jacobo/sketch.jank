@@ -4,11 +4,13 @@
 (def width 720)
 (def height 720)
 
-(defn setup! []
+(declare ring)
+
+(defn initial-state []
   {:ink [120 2 225 255]
    :paper [10 2 23 255]
-   :rows 44
-   :columns 44
+   :rows 22
+   :columns 22
    :spacing 48
    :origin [24 24]
    :circle-radius 23.0

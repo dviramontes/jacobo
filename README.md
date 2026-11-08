@@ -71,7 +71,7 @@ window first so you are looking at the live version. The sketch has two
 lifecycle functions in one file:
 
 ```clojure
-(defn setup! []
+(defn initial-state []
   {:radius 23 :ink [120 2 225 255]})
 
 (defn draw! [state]
@@ -79,15 +79,15 @@ lifecycle functions in one file:
   nil)
 ```
 
-`setup!` runs after the window opens and returns the state passed to every
+`initial-state` runs after the window opens and returns the state passed to every
 `draw!` call. Put colors, dimensions, or seeded composition generation in
-setup. `draw!`'s return value is ignored; use an atom in your state if the
+`initial-state`. `draw!`'s return value is ignored; use an atom in your state if the
 sketch needs mutable animation state.
 
-- Save a change to `setup!`: reload it and rebuild state, keeping `draw!` compiled.
+- Save a change to `initial-state`: reload it and rebuild state, keeping `draw!` compiled.
 - Save a change to `draw!`: reload it while preserving the current state.
 - Change both: reload both, then rebuild state once.
-- Press **R** in the live window to rerun setup and reset state. Escape closes it.
+- Press **R** in the live window to rerun `initial-state` and reset state. Escape closes it.
 
 Only changed lifecycle forms are evaluated, using jank's reader source ranges.
 The file is checked every 50 ms and requires two matching reads before reload.
@@ -95,17 +95,17 @@ Changes to helper definitions, imports, window dimensions, or other files requir
 restarting `just dev`. Top-level comments and whitespace between forms do not
 trigger recompilation; edits inside a function do.
 
-Reload and setup failures keep the previous function bindings and state. Fix
-and save again to retry. Setup side effects (such as native resource allocation
+Reload and state initialization failures keep the previous function bindings and state. Fix
+and save again to retry. Initialization side effects (such as native resource allocation
 or mutating an existing atom) cannot be rolled back. Runtime drawing errors
-are caught so another edit can recover. Keep setup resource management simple.
+are caught so another edit can recover. Keep initialization resource management simple.
 
-All lifecycle calls run on the rendering thread. Setup edits still compile the
-small setup function; they avoid recompiling the larger drawing function.
+All lifecycle calls run on the rendering thread. Initial-state edits still compile the
+small `initial-state` function; they avoid recompiling the larger drawing function.
 Drawing-code edits still incur native compilation and can pause the window.
-In a local running-window check, a setup-only edit took about 136 ms including
+In a local running-window check, an initial-state-only edit took about 136 ms including
 compilation and execution, excluding save detection; the drawing function was
-preserved. Setup work can take longer as composition generation grows.
+preserved. State initialization can take longer as composition generation grows.
 `just test-live` checks selective reload, state preservation, reset, and recovery.
 
 ## Live sketch REPL
@@ -137,14 +137,14 @@ For example, evaluate this in that namespace to temporarily clear the canvas:
   nil)
 ```
 
-After evaluating a new `setup!`, evaluate `(jacobo.dev/request-reset!)` to queue
+After evaluating a new `initial-state`, evaluate `(jacobo.dev/request-reset!)` to queue
 a state reset on the rendering thread. Re-evaluate the original `draw!` to
 restore the pattern. Saving
 alone does not reload code. Window dimensions are read when the window opens,
 so changes to `width` and `height` require restarting `just repl`.
 
 Raylib drawing and window calls stay on the main thread. Define functions
-through nREPL, but do not call `setup!`, `draw!`, `reset-sketch!`, `run-sketch!`, or raylib graphics
+through nREPL, but do not call `initial-state`, `draw!`, `reset-sketch!`, `run-sketch!`, or raylib graphics
 functions directly from the editor's evaluation thread. Ordinary drawing
 exceptions are caught so you can fix and re-evaluate a broken function;
 `@jacobo.dev/last-error` reports the failure state (native crashes cannot be

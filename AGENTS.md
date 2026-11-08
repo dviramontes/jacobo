@@ -23,8 +23,8 @@ local density. The initial scaffold is only a starting sketch.
 
 - Run `just` to list recipes, `just doctor` to check prerequisites.
 - Use `just run` for development and `just build` for a native executable.
-- Use `just dev` for reload-on-save editing of `jacobo.sketch`: `setup!` returns
-  state and `draw!` receives it. Setup edits reset state; draw edits preserve it.
+- Use `just dev` for reload-on-save editing of `jacobo.sketch`: `initial-state` returns
+  state and `draw!` receives it. Initial-state edits reset state; draw edits preserve it.
 - Use `just repl` for nREPL editing; evaluate definitions in `jacobo.sketch`.
   Keep raylib graphics calls on the main rendering thread, outside REPL evals.
 - Run `just smoke` after changes to verify native linking without a window.

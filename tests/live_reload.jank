@@ -3,23 +3,23 @@
             [jacobo.sketch :as sketch]))
 
 (def path "target/live-reload-test.jank")
-(def original-setup sketch/setup!)
+(def original-initial-state sketch/initial-state)
 (def original-draw sketch/draw!)
-(def setup-one "(defn setup! [] {:radius 1})")
-(def setup-two "(defn setup! [] {:radius 2})")
+(def initial-state-one "(defn initial-state [] {:radius 1})")
+(def initial-state-two "(defn initial-state [] {:radius 2})")
 (def draw-one "(defn draw! [state] (:radius state))")
 (def draw-two "(defn draw! [state] (* 2 (:radius state)))")
-(defn source [setup draw]
-  (str "; Unicode before source ranges: λ\n" setup "\n\n" draw "\n"))
+(defn source [initial-state draw]
+  (str "; Unicode before source ranges: λ\n" initial-state "\n\n" draw "\n"))
 
 (try
-  (spit path (source setup-one draw-one))
-  (alter-var-root #'sketch/setup! (constantly (fn [] {:radius 1})))
+  (spit path (source initial-state-one draw-one))
+  (alter-var-root #'sketch/initial-state (constantly (fn [] {:radius 1})))
   (alter-var-root #'sketch/draw! (constantly (fn [state] (:radius state))))
   (let [state (live/watch-state path)]
     (live/reset-sketch! state)
     (let [draw sketch/draw!]
-      (spit path (source setup-two draw-one))
+      (spit path (source initial-state-two draw-one))
       (live/poll! state path 0.0)
       (live/poll! state path 0.025)
       (assert (= {:radius 1} (:sketch-state @state)))
@@ -29,47 +29,47 @@
 
     ;; Simulated accumulated state survives a draw-only edit.
     (swap! state assoc :sketch-state {:radius 9})
-    (let [setup sketch/setup!
+    (let [initial-state sketch/initial-state
           data (:sketch-state @state)]
-      (assert (live/reload-source! state path (source setup-two draw-two)))
-      (assert (identical? setup sketch/setup!))
+      (assert (live/reload-source! state path (source initial-state-two draw-two)))
+      (assert (identical? initial-state sketch/initial-state))
       (assert (identical? data (:sketch-state @state)))
       (assert (= 18 (sketch/draw! data))))
 
     ;; A top-level comment does not recompile either function.
-    (let [draw sketch/draw! setup sketch/setup!]
-      (assert (live/reload-source! state path (str (source setup-two draw-two) "\n; comment")))
+    (let [draw sketch/draw! initial-state sketch/initial-state]
+      (assert (live/reload-source! state path (str (source initial-state-two draw-two) "\n; comment")))
       (assert (identical? draw sketch/draw!))
-      (assert (identical? setup sketch/setup!)))
+      (assert (identical? initial-state sketch/initial-state)))
 
-    ;; Failed setup rolls back both function roots and keeps the previous state.
-    (let [setup sketch/setup! draw sketch/draw! data (:sketch-state @state)]
+    ;; Failed initial-state rolls back both function roots and keeps the previous state.
+    (let [initial-state sketch/initial-state draw sketch/draw! data (:sketch-state @state)]
       (assert (not (live/reload-source! state path
-                                        (source "(defn setup! [] (throw :bad-setup))" draw-one))))
-      (assert (identical? setup sketch/setup!))
+                                        (source "(defn initial-state [] (throw :bad-initial-state))" draw-one))))
+      (assert (identical? initial-state sketch/initial-state))
       (assert (identical? draw sketch/draw!))
       (assert (identical? data (:sketch-state @state)))
       (assert (not (live/reload-source! state path
-                                        (source setup-one "(defn draw! [state] (missing-function state))"))))
-      (assert (identical? setup sketch/setup!))
+                                        (source initial-state-one "(defn draw! [state] (missing-function state))"))))
+      (assert (identical? initial-state sketch/initial-state))
       (assert (identical? draw sketch/draw!))
       (assert (identical? data (:sketch-state @state)))
-      (assert (not (live/reload-source! state path "(defn setup! []")))
+      (assert (not (live/reload-source! state path "(defn initial-state []")))
       (assert (not (live/reload-source! state path
-                                        (str "(def helper 3)\n" (source setup-two draw-one)))))
-      (assert (not (live/reload-source! state path setup-two)))
+                                        (str "(def helper 3)\n" (source initial-state-two draw-one)))))
+      (assert (not (live/reload-source! state path initial-state-two)))
       (assert (not (live/reload-source! state path
-                                        (str (source setup-two draw-one) setup-two)))))
+                                        (str (source initial-state-two draw-one) initial-state-two)))))
 
     ;; Retry on a new save after a rejected version; do not repeat bad saves.
-    (spit path "(defn setup! []")
+    (spit path "(defn initial-state []")
     (live/poll! state path 0.2)
     (live/poll! state path 0.3)
     (reset! live/last-error :not-retried)
     (live/poll! state path 0.4)
     (assert (= :not-retried @live/last-error))
     (live/poll! state "target/missing-lifecycle-file.jank" 0.5)
-    (spit path (source setup-one draw-one))
+    (spit path (source initial-state-one draw-one))
     (live/poll! state path 0.6)
     (live/poll! state path 0.7)
     (assert (= 1 (sketch/draw! (:sketch-state @state))))
@@ -77,7 +77,7 @@
     (swap! state assoc :sketch-state {:radius 99})
     (live/reset-sketch! state)
     (assert (= {:radius 1} (:sketch-state @state))))
-  (println "PASS: selective setup/draw reload, state preservation, reset, rollback, debounce and recovery")
+  (println "PASS: selective initial-state/draw reload, state preservation, reset, rollback, debounce and recovery")
   (finally
-    (alter-var-root #'sketch/setup! (constantly original-setup))
+    (alter-var-root #'sketch/initial-state (constantly original-initial-state))
     (alter-var-root #'sketch/draw! (constantly original-draw))))
