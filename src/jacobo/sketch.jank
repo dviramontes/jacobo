@@ -7,8 +7,8 @@
 (defn setup! []
   {:ink [120 2 225 255]
    :paper [10 2 23 255]
-   :rows 22
-   :columns 22
+   :rows 44
+   :columns 44
    :spacing 48
    :origin [24 24]
    :circle-radius 23.0
@@ -17,7 +17,7 @@
    :square-offset 22
    :square-width 44.0
    :square-height 44.0
-   :stroke-width 22.0
+   :stroke-width 4.7
    :seed 55})
 
 (defn draw! [state]
@@ -27,7 +27,7 @@
         [ir ig ib ia] ink
         [pr pg pb pa] paper
         [ox oy] origin
-        ink (cpp/Color ir ig ib ia)
+        native-ink (cpp/Color ir ig ib ia)
         paper (cpp/Color pr pg pb pa)
         ; elapsed-seconds (cpp/GetTime)
         ; phase (int (* elapsed-seconds 2))
@@ -52,13 +52,28 @@
                           sw
                           sh)
            stroke-width
-           ink)
+           native-ink)
 
           (< motif 6)
           (doseq [dy [(- cluster-offset) cluster-offset]
                   dx [(- cluster-offset) cluster-offset]]
-            (cpp/DrawCircleLines (+ x dx) (+ y dy) cluster-radius ink))
+            (ring (+ x dx) (+ y dy) cluster-radius stroke-width ink))
 
           :else
-          (cpp/DrawCircleLines x y (- circle-radius 30) ink)))))
+          (ring x y circle-radius stroke-width ink)))))
+  nil)
+
+(defn ring
+  "Draw a circle outline centered on radius r, with width w and RGBA ink."
+  [x y r w i]
+  (let [[red green blue alpha] i
+        half-width (/ w 2.0)]
+    (cpp/DrawRing
+     (cpp/Vector2 (* 1.0 x) (* 1.0 y))
+     (max 0.0 (- r half-width))
+     (+ r half-width)
+     0.0
+     360.0
+     64
+     (cpp/Color red green blue alpha)))
   nil)
