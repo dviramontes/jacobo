@@ -5,14 +5,25 @@
 
 (defonce running? (atom true))
 (defonce last-error (atom nil))
+(defonce sketch-state (atom nil))
+(defonce reset-requested? (atom false))
+
+(defn request-reset! []
+  (reset! reset-requested? true))
+
+(defn reset-sketch! []
+  (reset! sketch-state (sketch/setup!)))
 
 (defn stop! []
   (reset! running? false))
 
 (defn draw-frame! []
   (try
+    (when @reset-requested?
+      (reset! reset-requested? false)
+      (reset-sketch!))
     ;; Resolve the var each frame so evaluating a new defn takes effect.
-    (sketch/draw!)
+    (sketch/draw! @sketch-state)
     (reset! last-error nil)
     (catch :default _error
       ;; Keep the window alive so a broken definition can be fixed via nREPL.
@@ -28,4 +39,4 @@
     (do
       (reset! running? true)
       (println "Connect your editor using .nrepl-port; redefine jacobo.sketch/draw! to update the sketch.")
-      (main/run-sketch! (fn [] (draw-frame!)) (fn [] @running?)))))
+      (main/run-sketch! (fn [] (draw-frame!)) (fn [] @running?) reset-sketch!))))

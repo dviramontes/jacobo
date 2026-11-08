@@ -66,19 +66,47 @@ and invoke clj-kondo in Clojure mode to use this configuration.
 
 ## Live reload in Zed
 
-Run `just dev`, edit `src/jacobo/sketch.jank`, and save. The running window
-updates automatically; no editor connection or REPL is needed. Stop an older
-`just repl` or `just run` window first so you are looking at the live version.
+Run `just dev`, edit `src/jacobo/sketch.jank`, and save. Stop an older sketch
+window first so you are looking at the live version. The sketch has two
+lifecycle functions in one file:
 
-The file is checked every 250 ms and reloaded after two matching reads.
-Compilation briefly pauses rendering. Reloads and errors appear in the terminal;
-fix an invalid edit and save again to retry. Reloading and drawing both run on
-the main rendering thread. A failed reload restores the previous `draw!`
-function, but other definitions evaluated before the error are not rolled back.
+```clojure
+(defn setup! []
+  {:radius 23 :ink [120 2 225 255]})
 
-Only `sketch.jank` is watched. Changes to window dimensions, other source files,
-or native C++ definitions require restarting `just dev`. Keep top-level sketch
-forms to declarations and definitions; put drawing calls inside `draw!`.
+(defn draw! [state]
+  ;; Draw using (:radius state), (:ink state), etc.
+  nil)
+```
+
+`setup!` runs after the window opens and returns the state passed to every
+`draw!` call. Put colors, dimensions, or seeded composition generation in
+setup. `draw!`'s return value is ignored; use an atom in your state if the
+sketch needs mutable animation state.
+
+- Save a change to `setup!`: reload it and rebuild state, keeping `draw!` compiled.
+- Save a change to `draw!`: reload it while preserving the current state.
+- Change both: reload both, then rebuild state once.
+- Press **R** in the live window to rerun setup and reset state. Escape closes it.
+
+Only changed lifecycle forms are evaluated, using jank's reader source ranges.
+The file is checked every 50 ms and requires two matching reads before reload.
+Changes to helper definitions, imports, window dimensions, or other files require
+restarting `just dev`. Top-level comments and whitespace between forms do not
+trigger recompilation; edits inside a function do.
+
+Reload and setup failures keep the previous function bindings and state. Fix
+and save again to retry. Setup side effects (such as native resource allocation
+or mutating an existing atom) cannot be rolled back. Runtime drawing errors
+are caught so another edit can recover. Keep setup resource management simple.
+
+All lifecycle calls run on the rendering thread. Setup edits still compile the
+small setup function; they avoid recompiling the larger drawing function.
+Drawing-code edits still incur native compilation and can pause the window.
+In a local running-window check, a setup-only edit took about 136 ms including
+compilation and execution, excluding save detection; the drawing function was
+preserved. Setup work can take longer as composition generation grows.
+`just test-live` checks selective reload, state preservation, reset, and recovery.
 
 ## Live sketch REPL
 
@@ -98,23 +126,25 @@ just repl 5555
 
 This command runs the window and server; it does not show a terminal REPL prompt.
 
-Open `src/jacobo/sketch.jank`, change the colors or geometry in `draw!`, then
+Open `src/jacobo/sketch.jank`, change the geometry in `draw!`, then
 evaluate that function in the `jacobo.sketch` namespace. The next frames use
 the new definition. Evaluating the whole buffer through nREPL also works.
 For example, evaluate this in that namespace to temporarily clear the canvas:
 
 ```clojure
-(defn draw! []
+(defn draw! [_state]
   (cpp/ClearBackground (cpp/Color 20 10 40 255))
   nil)
 ```
 
-Re-evaluate the original `draw!` from the file to restore the pattern. Saving
+After evaluating a new `setup!`, evaluate `(jacobo.dev/request-reset!)` to queue
+a state reset on the rendering thread. Re-evaluate the original `draw!` to
+restore the pattern. Saving
 alone does not reload code. Window dimensions are read when the window opens,
 so changes to `width` and `height` require restarting `just repl`.
 
 Raylib drawing and window calls stay on the main thread. Define functions
-through nREPL, but do not call `draw!`, `run-sketch!`, or raylib graphics
+through nREPL, but do not call `setup!`, `draw!`, `reset-sketch!`, `run-sketch!`, or raylib graphics
 functions directly from the editor's evaluation thread. Ordinary drawing
 exceptions are caught so you can fix and re-evaluate a broken function;
 `@jacobo.dev/last-error` reports the failure state (native crashes cannot be

@@ -4,32 +4,55 @@
 (def width 720)
 (def height 720)
 
-(defn draw! []
-  (let [ink (cpp/Color 120 2 225 255)
-        paper (cpp/Color 10 2 23 255)]
+(defn setup! []
+  {:ink [120 2 225 255]
+   :paper [10 2 23 255]
+   :rows 22
+   :columns 22
+   :spacing 48
+   :origin [24 24]
+   :circle-radius 23.0
+   :cluster-offset 12
+   :cluster-radius 10.0
+   :square-offset 19
+   :square-width 44.0
+   :square-height 44.0
+   :stroke-width 22.0})
+
+(defn draw! [state]
+  (let [{:keys [ink paper rows columns spacing origin circle-radius
+                cluster-offset cluster-radius square-offset square-width
+                square-height stroke-width]} state
+        [ir ig ib ia] ink
+        [pr pg pb pa] paper
+        [ox oy] origin
+        ink (cpp/Color ir ig ib ia)
+        paper (cpp/Color pr pg pb pa)]
     (cpp/ClearBackground paper)
-    (doseq [row (range 22)
-            col (range 22)]
-      (let [x (+ 12 (* col 48))
-            y (+ 12 (* row 48))
+    (doseq [row (range rows)
+            col (range columns)]
+      (let [x (+ ox (* col spacing))
+            y (+ oy (* row spacing))
             motif (mod (+ (* row 7) (* col 11)) 37)]
         (cond
-          (= motif 0)
+          (= motif 4)
           (cpp/DrawRectangleLinesEx
-           (cpp/Rectangle (* 1.0 (- x 22))
-                          (* 1.0 (- y 22))
-                          44.0
+           (cpp/Rectangle (* 1.0 (- x square-offset))
+                          (* 1.0 (- y square-offset))
+                          square-width
+                          ; TODO:
                           ; let's intrudice some variability here
                           ; every other render lets draw toggle between
                           ; 22.0 and 44.0
-                          4.0)
-           2.0
+                          square-height)
+           stroke-width
            ink)
 
-          (< motif 5)
-          (doseq [dy [-12 12] dx [-12 12]]
-            (cpp/DrawCircleLines (+ x dx) (+ y dy) 10.0 ink))
+          (< motif 6)
+          (doseq [dy [(- cluster-offset) cluster-offset]
+                  dx [(- cluster-offset) cluster-offset]]
+            (cpp/DrawCircleLines (+ x dx) (+ y dy) cluster-radius ink))
 
           :else
-          (cpp/DrawCircleLines x y 23.0 ink)))))
+          (cpp/DrawCircleLines x y circle-radius ink)))))
   nil)

@@ -6,52 +6,103 @@
 (def sketch-path "src/jacobo/sketch.jank")
 (defonce last-error (atom nil))
 
-(defn reload-source! [path source]
-  (let [previous-draw sketch/draw!]
-    (binding [*ns* (the-ns 'jacobo.sketch)
-              *file* path]
-      (if (cpp/jank.evaluate.safe_eval
-           source
-           (cpp/jank.read.source_position.
-            (cpp/jtl.usize 0) (cpp/jtl.usize 1) (cpp/jtl.usize 1)))
-        (do
-          (reset! last-error nil)
-          (println "Reloaded" path)
-          true)
-        (do
-          ;; Evaluation is not transactional; preserve the drawing entry point.
-          (alter-var-root #'sketch/draw! (constantly previous-draw))
-          (reset! last-error (str *e))
-          (println "Reload failed; fix the file and save again:" @last-error)
-          false)))))
+(defn source-forms [source]
+  ;; Use jank's source ranges to preserve native syntax and metadata.
+  (let [wrapped (str "[\n" source "\n]")
+        forms (binding [*ns* (the-ns 'jacobo.sketch)] (read-string wrapped))
+        entries (mapv (fn [form]
+                        (let [span (:jank/source (meta form))]
+                          (when-not (and (seq? form) span)
+                            (throw (ex-info "Expected top-level declarations or definitions." {})))
+                          {:name (when (and (= 'defn (first form))
+                                           (contains? #{'setup! 'draw!} (second form)))
+                                   (second form))
+                           :code (subs wrapped (get-in span [:start :offset])
+                                               (get-in span [:end :offset]))
+                           :line (dec (get-in span [:start :line]))}))
+                      forms)]
+    (doseq [name ['setup! 'draw!]]
+      (when-not (= 1 (count (filter #(= name (:name %)) entries)))
+        (throw (ex-info "Keep exactly one defn setup! and one defn draw!." {}))))
+    entries))
+
+(defn report-error! [message]
+  (reset! last-error message)
+  (println "Live reload:" message)
+  false)
+
+(defn reset-sketch! [state]
+  ;; Compute first: failed setup leaves the current state in place.
+  (let [fresh (sketch/setup!)]
+    (swap! state assoc :sketch-state fresh)
+    (reset! last-error nil)))
+
+(defn reload-source! [state path source]
+  (let [old-setup sketch/setup!
+        old-draw sketch/draw!
+        failure (atom "Cannot read sketch. Keep one defn setup! and one defn draw!; check syntax.")]
+    (try
+      (let [before (:forms @state)
+            after (source-forms source)
+            unchanged (fn [forms] (mapv :code (filter #(nil? (:name %)) forms)))
+            previous (into {} (map (fn [entry] [(:name entry) (:code entry)]) before))
+            changed (filterv #(and (:name %) (not= (:code %) (get previous (:name %)))) after)]
+        (when-not (= (unchanged before) (unchanged after))
+          (reset! failure "Helpers, imports or window dimensions changed; restart just dev.")
+          (throw (ex-info "Helpers, imports or window dimensions changed; restart just dev." {})))
+        (binding [*ns* (the-ns 'jacobo.sketch) *file* path]
+          (doseq [{:keys [code line]} changed]
+            (when-not (cpp/jank.evaluate.safe_eval
+                       code (cpp/jank.read.source_position.
+                             (cpp/jtl.usize 0) (cpp/jtl.usize line) (cpp/jtl.usize 1)))
+              (reset! failure (str *e))
+              (throw (ex-info (str *e) {})))))
+        (when (some #(= 'setup! (:name %)) changed)
+          (reset! failure "Setup failed; previous functions and state preserved. Fix setup! and save again.")
+          (reset-sketch! state))
+        (swap! state assoc :forms after)
+        (reset! last-error nil)
+        (when (seq changed)
+          (println "Reloaded" (mapv :name changed)))
+        true)
+      (catch :default _error
+        (alter-var-root #'sketch/setup! (constantly old-setup))
+        (alter-var-root #'sketch/draw! (constantly old-draw))
+        ;; jank's catch-all cannot expose the exception value.
+        (report-error! @failure)))))
 
 (defn poll! [state path now]
   (when (>= now (:next-check @state))
-    (swap! state assoc :next-check (+ now 0.25))
+    (swap! state assoc :next-check (+ now 0.05))
     (try
       (let [source (slurp path)]
-        ;; Require identical contents on two polls to debounce editor saves.
         (if (not= source (:candidate @state))
           (swap! state assoc :candidate source)
           (when (not= source (:attempted @state))
-            ;; Attempt each saved version once, including invalid versions.
             (swap! state assoc :attempted source)
-            (reload-source! path source))))
-      (catch :default _error
-        ;; Atomic saves can briefly remove the file. Retry on the next poll.
-        nil))))
+            (reload-source! state path source))))
+      (catch :default _error nil))))
 
 (defn draw-frame! [state]
   (poll! state sketch-path (cpp/GetTime))
+  (when (cpp/IsKeyPressed cpp/KEY_R)
+    (try
+      (reset-sketch! state)
+      (println "Sketch reset.")
+      (catch :default _error (report-error! "Setup failed; previous state preserved."))))
   (try
-    (sketch/draw!)
+    (sketch/draw! (:sketch-state @state))
     (catch :default _error
-      (when (not= @last-error "Drawing failed; fix the file and save again.")
-        (reset! last-error "Drawing failed; fix the file and save again.")
-        (println @last-error)))))
+      (when (not= @last-error "Drawing failed; fix draw! and save again.")
+        (report-error! "Drawing failed; fix draw! and save again.")))))
+
+(defn watch-state [path]
+  (let [source (slurp path)]
+    (atom {:candidate source :attempted source :next-check 0.0
+           :forms (source-forms source) :sketch-state nil})))
 
 (defn -main [& _args]
-  (let [source (slurp sketch-path)
-        state (atom {:candidate source :attempted source :next-check 0.0})]
-    (println "Live reload: save" sketch-path "to update the sketch. Escape closes it.")
-    (main/run-sketch! (fn [] (draw-frame! state)) (constantly true))))
+  (let [state (watch-state sketch-path)]
+    (println "Save sketch.jank: setup! resets state; draw! preserves it. R resets; Escape closes.")
+    (main/run-sketch! (fn [] (draw-frame! state)) (constantly true)
+                     (fn [] (reset-sketch! state)))))
