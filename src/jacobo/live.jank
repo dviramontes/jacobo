@@ -1,0 +1,57 @@
+(ns jacobo.live
+  (:require [jacobo.main :as main]
+            [jacobo.sketch :as sketch])
+  (:include "raylib.h" "jank/evaluate.hpp"))
+
+(def sketch-path "src/jacobo/sketch.jank")
+(defonce last-error (atom nil))
+
+(defn reload-source! [path source]
+  (let [previous-draw sketch/draw!]
+    (binding [*ns* (the-ns 'jacobo.sketch)
+              *file* path]
+      (if (cpp/jank.evaluate.safe_eval
+           source
+           (cpp/jank.read.source_position.
+            (cpp/jtl.usize 0) (cpp/jtl.usize 1) (cpp/jtl.usize 1)))
+        (do
+          (reset! last-error nil)
+          (println "Reloaded" path)
+          true)
+        (do
+          ;; Evaluation is not transactional; preserve the drawing entry point.
+          (alter-var-root #'sketch/draw! (constantly previous-draw))
+          (reset! last-error (str *e))
+          (println "Reload failed; fix the file and save again:" @last-error)
+          false)))))
+
+(defn poll! [state path now]
+  (when (>= now (:next-check @state))
+    (swap! state assoc :next-check (+ now 0.25))
+    (try
+      (let [source (slurp path)]
+        ;; Require identical contents on two polls to debounce editor saves.
+        (if (not= source (:candidate @state))
+          (swap! state assoc :candidate source)
+          (when (not= source (:attempted @state))
+            ;; Attempt each saved version once, including invalid versions.
+            (swap! state assoc :attempted source)
+            (reload-source! path source))))
+      (catch :default _error
+        ;; Atomic saves can briefly remove the file. Retry on the next poll.
+        nil))))
+
+(defn draw-frame! [state]
+  (poll! state sketch-path (cpp/GetTime))
+  (try
+    (sketch/draw!)
+    (catch :default _error
+      (when (not= @last-error "Drawing failed; fix the file and save again.")
+        (reset! last-error "Drawing failed; fix the file and save again.")
+        (println @last-error)))))
+
+(defn -main [& _args]
+  (let [source (slurp sketch-path)
+        state (atom {:candidate source :attempted source :next-check 0.0})]
+    (println "Live reload: save" sketch-path "to update the sketch. Escape closes it.")
+    (main/run-sketch! (fn [] (draw-frame! state)) (constantly true))))

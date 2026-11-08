@@ -21,6 +21,15 @@ build:
 run:
     bash scripts/jank.sh run-main jacobo.main
 
+# Keep the window open and reload sketch.jank whenever it is saved.
+dev:
+    bash scripts/jank.sh run-main jacobo.live
+
+# Check reload-on-save behavior without opening a window.
+test-live:
+    mkdir -p target
+    bash scripts/jank.sh run tests/live_reload.jank
+
 # Open the sketch with an editor-connectable nREPL (0 selects a free port).
 repl port="0":
     bash scripts/jank.sh --port {{quote(port)}} run-main jacobo.dev

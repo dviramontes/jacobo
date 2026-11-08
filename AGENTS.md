@@ -14,6 +14,7 @@ local density. The initial scaffold is only a starting sketch.
 - `src/jacobo/sketch.jank`: drawing functions reusable by sketches.
 - `src/jacobo/main.jank`: window lifecycle and executable entry point.
 - `src/jacobo/dev.jank`: development nREPL and recoverable drawing callback.
+- `src/jacobo/live.jank`: main-thread reload-on-save development loop.
 - `Justfile`: development and native build commands.
 - `docs/reference.png`: original visual direction.
 - `hallo.jank`: existing hello-world experiment; preserve it.
@@ -22,7 +23,8 @@ local density. The initial scaffold is only a starting sketch.
 
 - Run `just` to list recipes, `just doctor` to check prerequisites.
 - Use `just run` for development and `just build` for a native executable.
-- Use `just repl` for live editing; evaluate definitions in `jacobo.sketch`.
+- Use `just dev` for reload-on-save editing of `jacobo.sketch`.
+- Use `just repl` for nREPL editing; evaluate definitions in `jacobo.sketch`.
   Keep raylib graphics calls on the main rendering thread, outside REPL evals.
 - Run `just smoke` after changes to verify native linking without a window.
 - Run `just lint` after source changes. clj-kondo checks Clojure forms; jank

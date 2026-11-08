@@ -12,7 +12,7 @@ fi
 sources=()
 while IFS= read -r -d '' source; do
   sources+=("$source")
-done < <(find src -type f -name '*.jank' -print0)
+done < <(find src tests -type f -name '*.jank' -print0)
 sources+=(hallo.jank)
 
 exec clj-kondo --lang clj --lint "${sources[@]}"

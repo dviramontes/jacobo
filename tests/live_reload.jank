@@ -1,0 +1,49 @@
+(ns live-reload
+  (:require [jacobo.live :as live]
+            [jacobo.sketch :as sketch]))
+
+;; Runs without a graphics context. Never edits the user's sketch file.
+(def path "target/live-reload-test.jank")
+(def original-draw sketch/draw!)
+(def state (atom {:candidate "" :attempted "" :next-check 0.0}))
+
+(try
+  (spit path "(defn draw! [] :first)")
+  (live/poll! state path 0.0)
+  (assert (= original-draw sketch/draw!))
+  (live/poll! state path 0.1)
+  (assert (= original-draw sketch/draw!))
+  (live/poll! state path 0.25)
+  (assert (= :first (sketch/draw!)))
+
+  (spit path "(defn draw! [] :second)")
+  (live/poll! state path 0.5)
+  (assert (= :first (sketch/draw!)))
+  (live/poll! state path 0.75)
+  (assert (= :second (sketch/draw!)))
+
+  ;; A later failure must restore draw! even if its definition was evaluated.
+  (spit path "(defn draw! [] :broken) (throw :reload-test)")
+  (live/poll! state path 1.0)
+  (live/poll! state path 1.25)
+  (assert (= :second (sketch/draw!)))
+  (assert (some? @live/last-error))
+  (reset! live/last-error :not-retried)
+  (live/poll! state path 1.5)
+  (assert (= :not-retried @live/last-error))
+
+  (spit path "(defn draw! []")
+  (live/poll! state path 1.75)
+  (live/poll! state path 2.0)
+  (assert (= :second (sketch/draw!)))
+
+  ;; A missing file during an atomic save must not stop polling.
+  (live/poll! state "target/no-such-live-reload-file.jank" 2.25)
+  (spit path "(defn draw! [] :recovered)")
+  (live/poll! state path 2.5)
+  (live/poll! state path 2.75)
+  (assert (= :recovered (sketch/draw!)))
+  (assert (nil? @live/last-error))
+  (println "PASS: debounce, redefinition, failure rollback, retry and recovery")
+  (finally
+    (alter-var-root #'sketch/draw! (constantly original-draw))))

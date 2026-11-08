@@ -24,6 +24,10 @@ just smoke
 just run
 ```
 
+For live editing, run `just dev` instead of `just run`, then save changes in
+Zed as described in [Live reload in Zed](#live-reload-in-zed).
+The optional [nREPL workflow](#live-sketch-repl) remains available with `just repl`.
+
 `just build` produces `target/jacobo`; run it directly to open the sketch.
 Press Escape or close the window to exit. `just smoke` builds and checks native
 linking without opening a window. `just clean` removes build outputs.
@@ -36,10 +40,15 @@ For another raylib installation, set `RAYLIB_PREFIX` to a prefix containing
 
 - `src/jacobo/sketch.jank` — reusable rendering functions.
 - `src/jacobo/main.jank` — window lifecycle and entry point.
+- `src/jacobo/dev.jank` — development nREPL and recoverable drawing callback.
 - `scripts/jank.sh` — native include/library discovery and compiler invocation.
 - `AGENTS.md` — mission and contributor workflow.
 
 ## Linting
+
+For Zed, the local [Jank extension](extensions/zed-jank/README.md) adds `.jank`
+syntax highlighting, bracket matching, indentation, and a definition outline.
+Install it using **zed: install dev extension**, selecting `extensions/zed-jank`.
 
 `just lint` explicitly discovers `.jank` files under `src/` and includes
 `hallo.jank`, checking them together as Clojure. Directory scans in clj-kondo
@@ -55,11 +64,38 @@ C++ names, native signatures, and jank-specific type conversions still need
 more hooks as the project grows. Editors must recognize `.jank` as Clojure
 and invoke clj-kondo in Clojure mode to use this configuration.
 
+## Live reload in Zed
+
+Run `just dev`, edit `src/jacobo/sketch.jank`, and save. The running window
+updates automatically; no editor connection or REPL is needed. Stop an older
+`just repl` or `just run` window first so you are looking at the live version.
+
+The file is checked every 250 ms and reloaded after two matching reads.
+Compilation briefly pauses rendering. Reloads and errors appear in the terminal;
+fix an invalid edit and save again to retry. Reloading and drawing both run on
+the main rendering thread. A failed reload restores the previous `draw!`
+function, but other definitions evaluated before the error are not rolled back.
+
+Only `sketch.jank` is watched. Changes to window dimensions, other source files,
+or native C++ definitions require restarting `just dev`. Keep top-level sketch
+forms to declarations and definitions; put drawing calls inside `draw!`.
+
 ## Live sketch REPL
 
-Run `just repl` to open the sketch and start a local nREPL server. Connect
-your editor's nREPL client to `127.0.0.1` using the printed port or the
-project's `.nrepl-port` file. Use `just repl 5555` to request a specific port.
+From the project root, launch the sketch and its local nREPL server:
+
+```sh
+just repl
+```
+
+Keep that process running, then connect your editor's nREPL client to
+`127.0.0.1` using the printed port or the project's `.nrepl-port` file.
+To request a specific port, launch with:
+
+```sh
+just repl 5555
+```
+
 This command runs the window and server; it does not show a terminal REPL prompt.
 
 Open `src/jacobo/sketch.jank`, change the colors or geometry in `draw!`, then
