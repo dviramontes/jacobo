@@ -1,3 +1,4 @@
-/grammars/
-/extension.wasm
 /target/
+/extension.wasm
+/grammars/
+__pycache__/
