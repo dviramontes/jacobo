@@ -8,6 +8,10 @@ default:
 lint:
     bash scripts/lint.sh
 
+# Format jank sources and tests (requires cljfmt).
+fmt:
+    cljfmt fix --file-pattern '\.jank$' src tests hallo.jank
+
 # Check the compiler and raylib installation.
 doctor:
     jank check-health

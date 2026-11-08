@@ -45,21 +45,21 @@
     ;; Failed setup rolls back both function roots and keeps the previous state.
     (let [setup sketch/setup! draw sketch/draw! data (:sketch-state @state)]
       (assert (not (live/reload-source! state path
-                     (source "(defn setup! [] (throw :bad-setup))" draw-one))))
+                                        (source "(defn setup! [] (throw :bad-setup))" draw-one))))
       (assert (identical? setup sketch/setup!))
       (assert (identical? draw sketch/draw!))
       (assert (identical? data (:sketch-state @state)))
       (assert (not (live/reload-source! state path
-                     (source setup-one "(defn draw! [state] (missing-function state))"))))
+                                        (source setup-one "(defn draw! [state] (missing-function state))"))))
       (assert (identical? setup sketch/setup!))
       (assert (identical? draw sketch/draw!))
       (assert (identical? data (:sketch-state @state)))
       (assert (not (live/reload-source! state path "(defn setup! []")))
       (assert (not (live/reload-source! state path
-                     (str "(def helper 3)\n" (source setup-two draw-one)))))
+                                        (str "(def helper 3)\n" (source setup-two draw-one)))))
       (assert (not (live/reload-source! state path setup-two)))
       (assert (not (live/reload-source! state path
-                     (str (source setup-two draw-one) setup-two)))))
+                                        (str (source setup-two draw-one) setup-two)))))
 
     ;; Retry on a new save after a rejected version; do not repeat bad saves.
     (spit path "(defn setup! []")

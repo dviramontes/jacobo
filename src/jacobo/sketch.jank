@@ -14,37 +14,43 @@
    :circle-radius 23.0
    :cluster-offset 12
    :cluster-radius 10.0
-   :square-offset 19
+   :square-offset 22
    :square-width 44.0
    :square-height 44.0
-   :stroke-width 22.0})
+   :stroke-width 22.0
+   :seed 55})
 
 (defn draw! [state]
   (let [{:keys [ink paper rows columns spacing origin circle-radius
                 cluster-offset cluster-radius square-offset square-width
-                square-height stroke-width]} state
+                square-height stroke-width seed]} state
         [ir ig ib ia] ink
         [pr pg pb pa] paper
         [ox oy] origin
         ink (cpp/Color ir ig ib ia)
-        paper (cpp/Color pr pg pb pa)]
+        paper (cpp/Color pr pg pb pa)
+        ; elapsed-seconds (cpp/GetTime)
+        ; phase (int (* elapsed-seconds 2))
+        ]
     (cpp/ClearBackground paper)
     (doseq [row (range rows)
             col (range columns)]
       (let [x (+ ox (* col spacing))
             y (+ oy (* row spacing))
-            motif (mod (+ (* row 7) (* col 11)) 37)]
+            motif (mod (+ (* row 7) (* col 11)) 37)
+            ;; random seed
+            short? (even? (hash [seed row col]))
+            ;; pulse
+            ; short? (even? (+ phase row col))
+            sw (if short? 22.0 square-width)
+            sh (if short? 22.0 square-height)]
         (cond
           (= motif 4)
           (cpp/DrawRectangleLinesEx
            (cpp/Rectangle (* 1.0 (- x square-offset))
                           (* 1.0 (- y square-offset))
-                          square-width
-                          ; TODO:
-                          ; let's intrudice some variability here
-                          ; every other render lets draw toggle between
-                          ; 22.0 and 44.0
-                          square-height)
+                          sw
+                          sh)
            stroke-width
            ink)
 
@@ -54,5 +60,5 @@
             (cpp/DrawCircleLines (+ x dx) (+ y dy) cluster-radius ink))
 
           :else
-          (cpp/DrawCircleLines x y circle-radius ink)))))
+          (cpp/DrawCircleLines x y (- circle-radius 30) ink)))))
   nil)

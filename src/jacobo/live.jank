@@ -15,10 +15,10 @@
                           (when-not (and (seq? form) span)
                             (throw (ex-info "Expected top-level declarations or definitions." {})))
                           {:name (when (and (= 'defn (first form))
-                                           (contains? #{'setup! 'draw!} (second form)))
+                                            (contains? #{'setup! 'draw!} (second form)))
                                    (second form))
                            :code (subs wrapped (get-in span [:start :offset])
-                                               (get-in span [:end :offset]))
+                                       (get-in span [:end :offset]))
                            :line (dec (get-in span [:start :line]))}))
                       forms)]
     (doseq [name ['setup! 'draw!]]
@@ -105,4 +105,4 @@
   (let [state (watch-state sketch-path)]
     (println "Save sketch.jank: setup! resets state; draw! preserves it. R resets; Escape closes.")
     (main/run-sketch! (fn [] (draw-frame! state)) (constantly true)
-                     (fn [] (reset-sketch! state)))))
+                      (fn [] (reset-sketch! state)))))
